@@ -1,0 +1,13 @@
+(class main
+ (method void foo ()
+   (begin
+     (let ((int y 5))
+       (print y)		# this prints out 5
+     )
+     (print y)  # this must result in a name error - y is out of scope!
+   )
+ )
+ (method void main ()
+   (call me foo)
+ )
+)
