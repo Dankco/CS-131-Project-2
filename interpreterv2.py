@@ -109,8 +109,14 @@ class FieldDef:
         self.field_name = field_def[2]
         self.type = self.class_def.get_type(field_def[1])
         val = create_value(field_def[3])
-        self.class_def.check_type_and_value(self.type, val)
+        val = self.class_def.check_type_and_value(self.type, val)
         self.default_field_value = val
+
+    def get_type(self):
+        return self.type
+
+    def get_value(self):
+        return self.default_field_value
 
 
 class ClassDef:
@@ -164,16 +170,27 @@ class ClassDef:
                 "invalid type name " + type_name,
             )
 
-    def check_type_and_value(self, type, val):
-        print(val.type(), type, val.value())
-        if type != val.type() or (
-            (type in self.interpreter.get_classes() or type == self.name)
-            and val.type is Type.CLASS
+    def check_type_and_value(self, type, val, is_param=False):
+        # print(val.type(), type, val.value())
+        if type == Type.NOTHING and val is None:
+            return val
+        # change null to have class type
+        if (
+            not isinstance(type, Type)
+            and val.type() is Type.CLASS
             and val.value() is None
         ):
+            val.set(create_value(InterpreterBase.NULL_DEF, type))
+        print(val.type(), type, val.value())
+        if type != val.type():
+            if is_param:
+                self.interpreter.error(
+                    ErrorType.NAME_ERROR, "mismatched parameter and value"
+                )
             self.interpreter.error(
                 ErrorType.TYPE_ERROR, "mismatched type and value"
             )
+        return val
 
     def __create_field_list(self, class_body):
         self.fields = []
@@ -218,15 +235,16 @@ class EnvironmentManager:
     and a value (e.g., Int, 10).
     """
 
-    def __init__(self):
-        self.environment = {}
+    def __init__(self, env):
+        self.environment = [env]
 
     def get(self, symbol):
         """
         Get data associated with variable name.
         """
-        if symbol in self.environment:
-            return self.environment[symbol]
+        for env in reversed(self.environment):
+            if symbol in env:
+                return env[symbol]
 
         return None
 
@@ -234,7 +252,15 @@ class EnvironmentManager:
         """
         Set data associated with a variable name.
         """
-        self.environment[symbol] = value
+        for env in reversed(self.environment):
+            if symbol in env:
+                env[symbol] = value
+
+    def add_env(self, new_env):
+        self.environment.append(new_env)
+
+    def remove_env(self):
+        self.environment.pop()
 
 
 """
@@ -272,7 +298,7 @@ class Value:
 
 
 # pylint: disable=too-many-return-statements
-def create_value(val):
+def create_value(val, class_name=Type.CLASS):
     """
     Create a Value object from a Python value.
     """
@@ -285,7 +311,7 @@ def create_value(val):
     if val.lstrip('-').isnumeric():
         return Value(Type.INT, int(val))
     if val == InterpreterBase.NULL_DEF:
-        return Value(Type.CLASS, None)
+        return Value(class_name, None)
     if val == InterpreterBase.NOTHING_DEF:
         return Value(Type.NOTHING, None)
     return None
@@ -331,19 +357,39 @@ class ObjectDef:
                 "invalid number of parameters in call to " + method_name,
                 line_num_of_caller,
             )
-        env = (
-            EnvironmentManager()
-        )  # maintains lexical environment for function; just params for now
+        env_dict = {}
         for formal, actual in zip(method_info.formal_params, actual_params):
-            env.set(formal, actual)
+            type = self.class_def.get_type(formal[0])
+            actual = self.class_def.check_type_and_value(type, actual, True)
+            env_dict[formal[1]] = actual
+        env = EnvironmentManager(
+            env_dict
+        )  # maintains lexical environment for function; just params for now
         # since each method has a single top-level statement, execute it.
         status, return_value = self.__execute_statement(env, method_info.code)
+        # check return value is correct
         # if the method explicitly used the (return expression) statement to return a value, then return that
         # value back to the caller
-        if status == ObjectDef.STATUS_RETURN:
+        if (
+            status == ObjectDef.STATUS_RETURN
+            and return_value is not None
+            and return_value.type() != Type.NOTHING
+        ):
+            print(return_value.type(), return_value.value())
+            self.class_def.check_type_and_value(
+                method_info.return_type, return_value
+            )
             return return_value
-        # The method didn't explicitly return a value, so return a value of type nothing
-        return Value(InterpreterBase.NOTHING_DEF)
+        # The method didn't explicitly return a value, so return default value
+        if method_info.return_type == Type.INT:
+            return create_value('0')
+        elif method_info.return_type == Type.BOOL:
+            return create_value('false')
+        elif method_info.return_type == Type.STRING:
+            return create_value('""')
+        elif not isinstance(method_info.return_type, Type):
+            return create_value(Interpreter.NULL_DEF)
+        return create_value(InterpreterBase.NOTHING_DEF)
 
     def __execute_statement(self, env, code):
         """
@@ -374,6 +420,8 @@ class ObjectDef:
             return self.__execute_input(env, code, False)
         if tok == InterpreterBase.PRINT_DEF:
             return self.__execute_print(env, code)
+        if tok == InterpreterBase.LET_DEF:
+            return self.__execute_let(env, code)
 
         self.interpreter.error(
             ErrorType.SYNTAX_ERROR, "unknown statement " + tok, tok.line_num
@@ -390,6 +438,26 @@ class ObjectDef:
                 )  # could be a valid return of a value or an error
         # if we run thru the entire block without a return, then just return proceed
         # we don't want the calling block to exit with a return
+        return ObjectDef.STATUS_PROCEED, None
+
+    def __execute_let(self, env, code):
+        new_env = {}
+        for type, name, val in code[1]:
+            type = self.class_def.get_type(type)
+            val = self.class_def.check_type_and_value(type, create_value(val))
+            new_env[name] = val
+        env.add_env(new_env)  # add local variables to env
+        for statement in code[2:]:
+            status, return_value = self.__execute_statement(env, statement)
+            if status == ObjectDef.STATUS_RETURN:
+                env.remove_env()
+                return (
+                    status,
+                    return_value,
+                )  # could be a valid return of a value or an error
+        # if we run thru the entire block without a return, then just return proceed
+        # we don't want the calling block to exit with a return
+        env.remove_env()
         return ObjectDef.STATUS_PROCEED, None
 
     # (call object_ref/me methodname param1 param2 param3)
@@ -462,7 +530,7 @@ class ObjectDef:
             self.interpreter.error(
                 ErrorType.NAME_ERROR, "unknown variable " + var_name, line_num
             )
-        self.class_def.check_type_and_value(
+        value = self.class_def.check_type_and_value(
             self.fields[var_name].type(), value
         )
         self.fields[var_name] = value
@@ -545,6 +613,11 @@ class ObjectDef:
             operand2 = self.__evaluate_expression(
                 env, expr[2], line_num_of_statement
             )
+            """ print(
+                operand1.type(),
+                isinstance(operand1.type(), Type),
+                operand2.type(),
+            ) """
             if (
                 operand1.type() == operand2.type()
                 and operand1.type() == Type.INT
@@ -582,7 +655,14 @@ class ObjectDef:
                 return self.binary_ops[Type.BOOL][operator](operand1, operand2)
             if (
                 operand1.type() == operand2.type()
-                and operand1.type() == Type.CLASS
+                or (
+                    operand2.type() == Type.CLASS
+                    and not isinstance(operand1.type(), Type)
+                )
+                or (
+                    operand1.type() == Type.CLASS
+                    and not isinstance(operand2.type(), Type)
+                )
             ):
                 if operator not in self.binary_ops[Type.CLASS]:
                     self.interpreter.error(
