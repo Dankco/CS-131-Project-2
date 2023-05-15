@@ -57,7 +57,9 @@ async def run_all_tests(interpreter, tests, timeout_per_test=5):
     results = [
         {
             "name": test["name"],
-            "score": await run_test_wrapper(interpreter, test, timeout_per_test),
+            "score": await run_test_wrapper(
+                interpreter, test, timeout_per_test
+            ),
             "max_score": 1,
             "visibility": "visible"
             if test.get("visible", False)

@@ -18,7 +18,9 @@ class ErrorType(Enum):
     TYPE_ERROR = 1
     NAME_ERROR = 2  # if a variable or function name can't be found
     SYNTAX_ERROR = 3  # used for syntax errors
-    FAULT_ERROR = 4  # used if an object reference is null and used to make a call
+    FAULT_ERROR = (
+        4  # used if an object reference is null and used to make a call
+    )
 
 
 class InterpreterBase:
@@ -86,7 +88,9 @@ class InterpreterBase:
         Wrap python's input() to allow user-supplied input instead of stdin.
         """
         if not self.inp:
-            return input()  # Get input from keyboard if not input list provided
+            return (
+                input()
+            )  # Get input from keyboard if not input list provided
 
         if self.input_cursor < len(self.inp):
             cur_input = self.inp[self.input_cursor]

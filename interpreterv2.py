@@ -6,6 +6,7 @@ from intbase import InterpreterBase, ErrorType
 from bparser import BParser
 from enum import Enum
 
+
 class Interpreter(InterpreterBase):
     """
     Main interpreter class that subclasses InterpreterBase.
@@ -25,7 +26,8 @@ class Interpreter(InterpreterBase):
         status, parsed_program = BParser.parse(program)
         if not status:
             super().error(
-                ErrorType.SYNTAX_ERROR, f"Parse error on program: {parsed_program}"
+                ErrorType.SYNTAX_ERROR,
+                f"Parse error on program: {parsed_program}",
             )
         self.__map_class_names_to_class_defs(parsed_program)
 
@@ -71,10 +73,11 @@ class Interpreter(InterpreterBase):
                         item[0].line_num,
                     )
                 self.class_index[item[1]] = ClassDef(item, self)
-    
+
     def get_classes(self):
         return self.class_index
-    
+
+
 """
 Module with classes for class, field, and method definitions.
 
@@ -109,6 +112,7 @@ class FieldDef:
         self.class_def.check_type_and_value(self.type, val)
         self.default_field_value = val
 
+
 class ClassDef:
     """
     Holds definition for a class:
@@ -135,9 +139,9 @@ class ClassDef:
         Get a list of MethodDefs for *all* fields in the class.
         """
         return self.methods
-    
+
     def get_type(self, type_name):
-        """ convert name into type """
+        """convert name into type"""
         if type_name == InterpreterBase.INT_DEF:
             return Type.INT
         elif type_name == InterpreterBase.STRING_DEF:
@@ -162,10 +166,13 @@ class ClassDef:
 
     def check_type_and_value(self, type, val):
         print(val.type(), type, val.value())
-        if type != val.type() or type in self.interpreter.get_classes() and val.type is Type.CLASS and val.value() == None:
+        if type != val.type() or (
+            (type in self.interpreter.get_classes() or type == self.name)
+            and val.type is Type.CLASS
+            and val.value() is None
+        ):
             self.interpreter.error(
-                ErrorType.TYPE_ERROR,
-                "mismatched type and value"
+                ErrorType.TYPE_ERROR, "mismatched type and value"
             )
 
     def __create_field_list(self, class_body):
@@ -195,6 +202,8 @@ class ClassDef:
                     )
                 self.methods.append(MethodDef(member, self))
                 methods_defined_so_far.add(member[2])
+
+
 """
 Module that manages program environments. Currently a mapping from variables to values.
 """
@@ -226,6 +235,7 @@ class EnvironmentManager:
         Set data associated with a variable name.
         """
         self.environment[symbol] = value
+
 
 """
 Module that contains the Value definition and associated type constructs.
@@ -280,10 +290,12 @@ def create_value(val):
         return Value(Type.NOTHING, None)
     return None
 
+
 """
 Module handling the operations of an object. This contains the meat
 of the code to execute various instructions.
 """
+
 
 class ObjectDef:
     STATUS_PROCEED = 0
@@ -297,7 +309,7 @@ class ObjectDef:
         self.trace_output = trace_output
         self.__map_fields_to_values()
         self.__map_method_names_to_method_definitions()
-        self.__create_map_of_operations_to_lambdas()  # sets up maps to facilitate binary and unary operations, e.g., (+ 5 6)
+        self.__create_map_of_operations_to_lambdas()  # sets up maps to facilitate binary and unary operations
 
     def call_method(self, method_name, actual_params, line_num_of_caller):
         """
@@ -398,7 +410,9 @@ class ObjectDef:
     def __execute_return(self, env, code):
         if len(code) == 1:
             # [return] with no return expression
-            return ObjectDef.STATUS_RETURN, create_value(InterpreterBase.NOTHING_DEF)
+            return ObjectDef.STATUS_RETURN, create_value(
+                InterpreterBase.NOTHING_DEF
+            )
         return ObjectDef.STATUS_RETURN, self.__evaluate_expression(
             env, code[1], code[0].line_num
         )
@@ -435,7 +449,9 @@ class ObjectDef:
         # parameter shadows fields
         if value.type() == Type.NOTHING:
             self.interpreter.error(
-                ErrorType.TYPE_ERROR, "can't assign to nothing " + var_name, line_num
+                ErrorType.TYPE_ERROR,
+                "can't assign to nothing " + var_name,
+                line_num,
             )
         param_val = env.get(var_name)
         if param_val is not None:
@@ -446,7 +462,9 @@ class ObjectDef:
             self.interpreter.error(
                 ErrorType.NAME_ERROR, "unknown variable " + var_name, line_num
             )
-        self.class_def.check_type_and_value(self.fields[var_name].type(), value)
+        self.class_def.check_type_and_value(
+            self.fields[var_name].type(), value
+        )
         self.fields[var_name] = value
 
     # (if expression (statement) (statement) ) where expresion could be a boolean constant (e.g., true), member
@@ -475,14 +493,19 @@ class ObjectDef:
     # or a boolean expression in parens, like (> 5 a)
     def __execute_while(self, env, code):
         while True:
-            condition = self.__evaluate_expression(env, code[1], code[0].line_num)
+            condition = self.__evaluate_expression(
+                env, code[1], code[0].line_num
+            )
             if condition.type() != Type.BOOL:
                 self.interpreter.error(
                     ErrorType.TYPE_ERROR,
-                    "non-boolean while condition " + ' '.join(x for x in code[1]),
+                    "non-boolean while condition "
+                    + ' '.join(x for x in code[1]),
                     code[0].line_num,
                 )
-            if not condition.value():  # condition is false, exit loop immediately
+            if (
+                not condition.value()
+            ):  # condition is false, exit loop immediately
                 return ObjectDef.STATUS_PROCEED, None
             # condition is true, run body of while loop
             status, return_value = self.__execute_statement(env, code[2])
@@ -494,7 +517,8 @@ class ObjectDef:
 
     # given an expression, return a Value object with the expression's evaluated result
     # expressions could be: constants (true, 5, "blah"), variables (e.g., x), arithmetic/string/logical expressions
-    # like (+ 5 6), (+ "abc" "def"), (> a 5), method calls (e.g., (call me foo)), or instantiations (e.g., new dog_class)
+    # like (+ 5 6), (+ "abc" "def"), (> a 5), method calls (e.g., (call me foo)), or instantiations
+    # (e.g., new dog_class)
     def __evaluate_expression(self, env, expr, line_num_of_statement):
         if not isinstance(expr, list):
             # locals shadow member variables
@@ -515,9 +539,16 @@ class ObjectDef:
 
         operator = expr[0]
         if operator in self.binary_op_list:
-            operand1 = self.__evaluate_expression(env, expr[1], line_num_of_statement)
-            operand2 = self.__evaluate_expression(env, expr[2], line_num_of_statement)
-            if operand1.type() == operand2.type() and operand1.type() == Type.INT:
+            operand1 = self.__evaluate_expression(
+                env, expr[1], line_num_of_statement
+            )
+            operand2 = self.__evaluate_expression(
+                env, expr[2], line_num_of_statement
+            )
+            if (
+                operand1.type() == operand2.type()
+                and operand1.type() == Type.INT
+            ):
                 if operator not in self.binary_ops[Type.INT]:
                     self.interpreter.error(
                         ErrorType.TYPE_ERROR,
@@ -525,15 +556,23 @@ class ObjectDef:
                         line_num_of_statement,
                     )
                 return self.binary_ops[Type.INT][operator](operand1, operand2)
-            if operand1.type() == operand2.type() and operand1.type() == Type.STRING:
+            if (
+                operand1.type() == operand2.type()
+                and operand1.type() == Type.STRING
+            ):
                 if operator not in self.binary_ops[Type.STRING]:
                     self.interpreter.error(
                         ErrorType.TYPE_ERROR,
                         "invalid operator applied to strings",
                         line_num_of_statement,
                     )
-                return self.binary_ops[Type.STRING][operator](operand1, operand2)
-            if operand1.type() == operand2.type() and operand1.type() == Type.BOOL:
+                return self.binary_ops[Type.STRING][operator](
+                    operand1, operand2
+                )
+            if (
+                operand1.type() == operand2.type()
+                and operand1.type() == Type.BOOL
+            ):
                 if operator not in self.binary_ops[Type.BOOL]:
                     self.interpreter.error(
                         ErrorType.TYPE_ERROR,
@@ -541,14 +580,19 @@ class ObjectDef:
                         line_num_of_statement,
                     )
                 return self.binary_ops[Type.BOOL][operator](operand1, operand2)
-            if operand1.type() == operand2.type() and operand1.type() == Type.CLASS:
+            if (
+                operand1.type() == operand2.type()
+                and operand1.type() == Type.CLASS
+            ):
                 if operator not in self.binary_ops[Type.CLASS]:
                     self.interpreter.error(
                         ErrorType.TYPE_ERROR,
                         "invalid operator applied to class",
                         line_num_of_statement,
                     )
-                return self.binary_ops[Type.CLASS][operator](operand1, operand2)
+                return self.binary_ops[Type.CLASS][operator](
+                    operand1, operand2
+                )
             # error what about an obj reference and null
             self.interpreter.error(
                 ErrorType.TYPE_ERROR,
@@ -556,7 +600,9 @@ class ObjectDef:
                 line_num_of_statement,
             )
         if operator in self.unary_op_list:
-            operand = self.__evaluate_expression(env, expr[1], line_num_of_statement)
+            operand = self.__evaluate_expression(
+                env, expr[1], line_num_of_statement
+            )
             if operand.type() == Type.BOOL:
                 if operator not in self.unary_ops[Type.BOOL]:
                     self.interpreter.error(
@@ -592,7 +638,9 @@ class ObjectDef:
         # prepare the actual arguments for passing
         if obj is None:
             self.interpreter.error(
-                ErrorType.FAULT_ERROR, "null dereference", line_num_of_statement
+                ErrorType.FAULT_ERROR,
+                "null dereference",
+                line_num_of_statement,
             )
         actual_args = []
         for expr in code[3:]:

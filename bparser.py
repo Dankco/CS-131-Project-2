@@ -78,7 +78,9 @@ class BParser:
                         in_quote = True
                     else:
                         cur_token += BParser.QUOTE_CHAR
-                        token_and_line_num = StringWithLineNumber(cur_token, line_no)
+                        token_and_line_num = StringWithLineNumber(
+                            cur_token, line_no
+                        )
                         output_stack[-1].append(token_and_line_num)
                         cur_token = ""
                         in_quote = False
@@ -89,7 +91,9 @@ class BParser:
 
                 if char in BParser.DELIMETER_CHARS:
                     if cur_token:
-                        token_and_line_num = StringWithLineNumber(cur_token, line_no)
+                        token_and_line_num = StringWithLineNumber(
+                            cur_token, line_no
+                        )
                         output_stack[-1].append(token_and_line_num)
                         cur_token = ""
                 if char == BParser.OPEN_PAREN_CHAR:
