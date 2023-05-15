@@ -57,8 +57,13 @@ class Interpreter(InterpreterBase):
                 line_num_of_statement,
             )
         class_def = self.class_index[class_name]
+        super_obj = None
+        if class_def.superclass is not None:
+            super_obj = self.instantiate(
+                class_def.superclass, line_num_of_statement
+            )
         obj = ObjectDef(
-            self, class_def, self.trace_output
+            self, class_def, self.trace_output, super_obj
         )  # Create an object based on this class definition
         return obj
 
@@ -131,8 +136,14 @@ class ClassDef:
     def __init__(self, class_def, interpreter):
         self.interpreter = interpreter
         self.name = class_def[1]
-        self.__create_field_list(class_def[2:])
-        self.__create_method_list(class_def[2:])
+        self.superclass = None
+        if class_def[2] == InterpreterBase.INHERITS_DEF:
+            self.superclass = class_def[3]
+            self.__create_field_list(class_def[4:])
+            self.__create_method_list(class_def[4:])
+        else:
+            self.__create_field_list(class_def[2:])
+            self.__create_method_list(class_def[2:])
 
     def get_fields(self):
         """
@@ -181,7 +192,16 @@ class ClassDef:
             and val.value() is None
         ):
             val.set(create_value(InterpreterBase.NULL_DEF, type))
-        print(val.type(), type, val.value())
+        elif not isinstance(val.type(), Type) and not isinstance(type, Type):
+            print(val.type(), type)
+            classes = self.interpreter.get_classes()
+            class_to_search = classes[val.type()]
+            class_to_use = class_to_search.name
+            while class_to_use != type:
+                class_to_use = class_to_search.superclass
+                class_to_search = classes[class_to_use]
+            if class_to_use == type:
+                return val
         if type != val.type():
             if is_param:
                 self.interpreter.error(
@@ -329,7 +349,8 @@ class ObjectDef:
     STATUS_NAME_ERROR = 2
     STATUS_TYPE_ERROR = 3
 
-    def __init__(self, interpreter, class_def, trace_output):
+    def __init__(self, interpreter, class_def, trace_output, super_obj=None):
+        self.super_obj = super_obj
         self.interpreter = interpreter  # objref to interpreter object. used to report errors, get input, produce output
         self.class_def = class_def  # take class body from 3rd+ list elements, e.g., ["class",classname", [classbody]]
         self.trace_output = trace_output
@@ -345,6 +366,10 @@ class ObjectDef:
         The error is then generated at the source (i.e., where the call is initiated).
         """
         if method_name not in self.methods:
+            if self.super_obj is not None:
+                return self.super_obj.call_method(
+                    method_name, actual_params, line_num_of_caller
+                )
             self.interpreter.error(
                 ErrorType.NAME_ERROR,
                 "unknown method " + method_name,
@@ -352,6 +377,10 @@ class ObjectDef:
             )
         method_info = self.methods[method_name]
         if len(actual_params) != len(method_info.formal_params):
+            if self.super_obj is not None:
+                return self.super_obj.call_method(
+                    method_name, actual_params, line_num_of_caller
+                )
             self.interpreter.error(
                 ErrorType.TYPE_ERROR,
                 "invalid number of parameters in call to " + method_name,
@@ -709,8 +738,11 @@ class ObjectDef:
     def __execute_call_aux(self, env, code, line_num_of_statement):
         # determine which object we want to call the method on
         obj_name = code[1]
+        print(obj_name)
         if obj_name == InterpreterBase.ME_DEF:
             obj = self
+        elif obj_name == InterpreterBase.SUPER_DEF:
+            obj = self.super_obj
         else:
             obj = self.__evaluate_expression(
                 env, obj_name, line_num_of_statement

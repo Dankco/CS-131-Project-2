@@ -1,0 +1,26 @@
+(class person
+  (field string name "jane")
+  (method void say_something () (print name " says hi")
+  )
+)
+
+(class student inherits person
+  (method void say_something ()
+    (print "Can I have an extension?")
+  )
+)
+
+(class main
+  (field person p null)
+  (method void foo ((person p)) # foo accepts a "person" as an argument
+    (call p say_something)
+  )
+  (method void main ()
+    (begin
+      (set p (new student))  # Assigns p, which is a person object ref
+                             # to a student obj. This is polymorphism!  
+      (call me foo p)        # Passes a student object as an argument 
+                             # to foo. This is also polymorphism!
+    )
+  )
+)
