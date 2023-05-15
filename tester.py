@@ -188,7 +188,7 @@ def generate_test_suite_v2():
             "test_inher1",
             "test_let",
         ],
-        ["test_incompat_return1", "test_let2", "test_inher1", "test_incompat_types2"],
+        ["test_incompat_return1", "test_let2", "test_inher1", "test_incompat_types2", "test_static_types"],
     )
 
 
