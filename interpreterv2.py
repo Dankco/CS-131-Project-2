@@ -168,7 +168,7 @@ class ClassDef:
         elif type_name == InterpreterBase.NULL_DEF:
             return Type.CLASS
         elif type_name == InterpreterBase.VOID_DEF:
-            return Type.NOTHING
+            return Type.VOID
         elif type_name == InterpreterBase.NOTHING_DEF:
             return Type.NOTHING
         elif type_name in self.interpreter.get_classes():
@@ -183,8 +183,6 @@ class ClassDef:
 
     def check_type_and_value(self, type, val, is_param=False):
         # print(val.type(), type, val.value())
-        if type == Type.NOTHING and val is None:
-            return val
         # change null to have class type
         if (
             not isinstance(type, Type)
@@ -193,15 +191,21 @@ class ClassDef:
         ):
             val.set(create_value(InterpreterBase.NULL_DEF, type))
         elif not isinstance(val.type(), Type) and not isinstance(type, Type):
-            print(val.type(), type)
+            # print(val.type(), type)
             classes = self.interpreter.get_classes()
             class_to_search = classes[val.type()]
             class_to_use = class_to_search.name
             while class_to_use != type:
                 class_to_use = class_to_search.superclass
+                if class_to_use is None:
+                    break
                 class_to_search = classes[class_to_use]
             if class_to_use == type:
                 return val
+            else:
+                self.interpreter.error(
+                    ErrorType.TYPE_ERROR, "mismatched classes"
+                )
         if type != val.type():
             if is_param:
                 self.interpreter.error(
@@ -275,6 +279,7 @@ class EnvironmentManager:
         for env in reversed(self.environment):
             if symbol in env:
                 env[symbol] = value
+                break
 
     def add_env(self, new_env):
         self.environment.append(new_env)
@@ -296,6 +301,7 @@ class Type(Enum):
     STRING = 3
     CLASS = 4
     NOTHING = 5
+    VOID = 6
 
 
 # Represents a value, which has a type and its value
@@ -390,6 +396,12 @@ class ObjectDef:
         for formal, actual in zip(method_info.formal_params, actual_params):
             type = self.class_def.get_type(formal[0])
             actual = self.class_def.check_type_and_value(type, actual, True)
+            if formal[1] in env_dict:
+                self.interpreter.error(
+                    ErrorType.NAME_ERROR,
+                    "duplicate formal param " + formal[1],
+                    line_num_of_caller,
+                )
             env_dict[formal[1]] = actual
         env = EnvironmentManager(
             env_dict
@@ -404,7 +416,6 @@ class ObjectDef:
             and return_value is not None
             and return_value.type() != Type.NOTHING
         ):
-            print(return_value.type(), return_value.value())
             self.class_def.check_type_and_value(
                 method_info.return_type, return_value
             )
@@ -474,6 +485,11 @@ class ObjectDef:
         for type, name, val in code[1]:
             type = self.class_def.get_type(type)
             val = self.class_def.check_type_and_value(type, create_value(val))
+            if name in new_env:
+                self.interpreter.error(
+                    ErrorType.NAME_ERROR,
+                    "duplicate let params " + name,
+                )
             new_env[name] = val
         env.add_env(new_env)  # add local variables to env
         for statement in code[2:]:
@@ -624,6 +640,9 @@ class ObjectDef:
                 return val
             if expr in self.fields:
                 return self.fields[expr]
+            # print(expr)
+            if expr == InterpreterBase.ME_DEF:
+                return Value(self.class_def.name, self)
             # need to check for variable name and get its value too
             value = create_value(expr)
             if value is not None:
@@ -738,7 +757,7 @@ class ObjectDef:
     def __execute_call_aux(self, env, code, line_num_of_statement):
         # determine which object we want to call the method on
         obj_name = code[1]
-        print(obj_name)
+        # print(obj_name)
         if obj_name == InterpreterBase.ME_DEF:
             obj = self
         elif obj_name == InterpreterBase.SUPER_DEF:
@@ -820,8 +839,8 @@ class ObjectDef:
             "!=": lambda a, b: Value(Type.BOOL, a.value() != b.value()),
         }
         self.binary_ops[Type.CLASS] = {
-            "==": lambda a, b: Value(Type.BOOL, a.value() == b.value()),
-            "!=": lambda a, b: Value(Type.BOOL, a.value() != b.value()),
+            "==": lambda a, b: Value(Type.BOOL, a.value() is b.value()),
+            "!=": lambda a, b: Value(Type.BOOL, a.value() is not b.value()),
         }
 
         self.unary_ops = {}

@@ -191,6 +191,10 @@ def generate_test_suite_v2():
             "test_inher3",
             "test_inher_overload",
             "test_poly",
+            "test_let2",
+            "test_inher4",
+            "test_objref_comp",
+            "test_let_shadow"
         ],
         [
             "test_incompat_return1",
@@ -200,6 +204,8 @@ def generate_test_suite_v2():
             "test_static_types",
             "test_let_oos",
             "test_inher2",
+            "test_incompat_return2",
+            "test_let_dupe"
         ],
     )
 

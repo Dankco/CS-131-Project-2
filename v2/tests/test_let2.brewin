@@ -1,0 +1,20 @@
+(class main
+ (method void foo ((int x))
+   (begin
+     (print x)  					# Line #1: prints 10
+     (let ((bool x true) (int y 5))
+       (print x)					# Line #2: prints true
+       (print y)					# Line #3: prints 5
+       (let ((int x 3))
+       (print x) # prints 3
+       (set y 100)
+        )
+        (print y) # prints 100
+     )
+     (print x)					# Line #4: prints 10
+   )
+ )
+ (method void main ()
+   (call me foo 10)
+ )
+)
