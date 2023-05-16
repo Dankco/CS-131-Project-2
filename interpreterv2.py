@@ -77,6 +77,9 @@ class Interpreter(InterpreterBase):
                         f"Duplicate class name {item[1]}",
                         item[0].line_num,
                     )
+                self.class_index[item[1]] = None
+        for item in program:
+            if item[0] == InterpreterBase.CLASS_DEF:
                 self.class_index[item[1]] = ClassDef(item, self)
 
     def get_classes(self):
@@ -182,7 +185,7 @@ class ClassDef:
             )
 
     def check_type_and_value(self, type, val, is_param=False):
-        print(type, val.type(), val.value())
+        # print(type, val.type(), val.value())
         # change null to have class type
         if (
             not isinstance(type, Type)
@@ -666,7 +669,7 @@ class ObjectDef:
             operand2 = self.__evaluate_expression(
                 env, expr[2], line_num_of_statement
             )
-            print(operand1.type(), operand2.type())
+            # print(operand1.type(), operand2.type())
             if not isinstance(operand1.type(), Type) and not isinstance(
                 operand2.type(), Type
             ):
@@ -684,7 +687,7 @@ class ObjectDef:
                     class_to_search = classes[operand2.type()]
                     class_to_use = class_to_search.name
                     while class_to_use != operand1.type():
-                        print(class_to_use)
+                        # print(class_to_use)
                         class_to_use = class_to_search.superclass
                         if class_to_use is None:
                             break
