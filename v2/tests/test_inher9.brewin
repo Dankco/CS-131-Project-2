@@ -1,0 +1,29 @@
+(class living_thing
+    (method void a ()
+        (print "living_thing's A") 
+    )
+)
+(class mammal inherits living_thing
+    (method void c ()
+        (call me a) # this needs to call living_thing and not human's a ... maybe me should call the human when it is a human
+    )
+)
+(class human inherits mammal
+    (method void a ()
+        (print "human's A")
+    )
+    (method void b ()
+        (call me c)
+    ) # calls a method on mammal
+)
+
+(class main
+    (field living_thing temp null)
+    (method void main ()
+        (begin
+            (set temp (new human))
+            (call temp b) # should print "human's A"
+            (call (new mammal) c) # should print "living_thing's A"
+        )
+    )
+) 

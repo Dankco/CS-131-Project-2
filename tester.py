@@ -204,6 +204,7 @@ def generate_test_suite_v2():
             "test_inher6",
             "test_set6",
             "test_set5",
+            "test_inher9"
         ],
         [
             "test_incompat_return1",

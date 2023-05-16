@@ -194,7 +194,7 @@ class ClassDef:
         ):
             val.set(create_value(InterpreterBase.NULL_DEF, type))
         elif not isinstance(val.type(), Type) and not isinstance(type, Type):
-            # print(val.type(), type)
+            # print(val.type(), type, is_param)
             classes = self.interpreter.get_classes()
             class_to_search = classes[val.type()]
             class_to_use = class_to_search.name
@@ -369,18 +369,32 @@ class ObjectDef:
         self.__map_method_names_to_method_definitions()
         self.__create_map_of_operations_to_lambdas()  # sets up maps to facilitate binary and unary operations
 
-    def call_method(self, method_name, actual_params, line_num_of_caller):
+    def call_method(
+        self, method_name, actual_params, line_num_of_caller, first_obj=None
+    ):
         """
         actual_params is a list of Value objects (all parameters are passed by value).
 
         The caller passes in the line number so we can properly generate an error message.
         The error is then generated at the source (i.e., where the call is initiated).
         """
+        # print(method_name, first_obj, self.class_def.name)
         if method_name not in self.methods:
             if self.super_obj is not None:
-                return self.super_obj.call_method(
-                    method_name, actual_params, line_num_of_caller
-                )
+                if first_obj is not None:
+                    return self.super_obj.call_method(
+                        method_name,
+                        actual_params,
+                        line_num_of_caller,
+                        first_obj,
+                    )
+                else:
+                    return self.super_obj.call_method(
+                        method_name,
+                        actual_params,
+                        line_num_of_caller,
+                        self,
+                    )
             self.interpreter.error(
                 ErrorType.NAME_ERROR,
                 "unknown method " + method_name,
@@ -389,9 +403,20 @@ class ObjectDef:
         method_info = self.methods[method_name]
         if len(actual_params) != len(method_info.formal_params):
             if self.super_obj is not None:
-                return self.super_obj.call_method(
-                    method_name, actual_params, line_num_of_caller
-                )
+                if first_obj is not None:
+                    return self.super_obj.call_method(
+                        method_name,
+                        actual_params,
+                        line_num_of_caller,
+                        first_obj,
+                    )
+                else:
+                    return self.super_obj.call_method(
+                        method_name,
+                        actual_params,
+                        line_num_of_caller,
+                        self,
+                    )
             self.interpreter.error(
                 ErrorType.NAME_ERROR,
                 "invalid number of parameters in call to " + method_name,
@@ -412,7 +437,9 @@ class ObjectDef:
             env_dict
         )  # maintains lexical environment for function; just params for now
         # since each method has a single top-level statement, execute it.
-        status, return_value = self.__execute_statement(env, method_info.code)
+        status, return_value = self.__execute_statement(
+            env, method_info.code, first_obj if first_obj is not None else self
+        )
         # check return value is correct
         # if the method explicitly used the (return expression) statement to return a value, then return that
         # value back to the caller
@@ -436,7 +463,7 @@ class ObjectDef:
             return create_value(Interpreter.NULL_DEF)
         return create_value(InterpreterBase.NOTHING_DEF)
 
-    def __execute_statement(self, env, code):
+    def __execute_statement(self, env, code, first_obj=None):
         """
         returns (status_code, return_value) where:
         - status_code indicates if the next statement includes a return
@@ -454,7 +481,7 @@ class ObjectDef:
         if tok == InterpreterBase.IF_DEF:
             return self.__execute_if(env, code)
         if tok == InterpreterBase.CALL_DEF:
-            return self.__execute_call(env, code)
+            return self.__execute_call(env, code, first_obj)
         if tok == InterpreterBase.WHILE_DEF:
             return self.__execute_while(env, code)
         if tok == InterpreterBase.RETURN_DEF:
@@ -513,9 +540,9 @@ class ObjectDef:
     # (call object_ref/me methodname param1 param2 param3)
     # where params are expressions, and expresion could be a value, or a (+ ...)
     # statement version of a method call; there's also an expression version of a method call below
-    def __execute_call(self, env, code):
+    def __execute_call(self, env, code, first_obj):
         return ObjectDef.STATUS_PROCEED, self.__execute_call_aux(
-            env, code, code[0].line_num
+            env, code, code[0].line_num, first_obj
         )
 
     # (set varname expression), where expresion could be a value, or a (+ ...)
@@ -787,12 +814,18 @@ class ObjectDef:
 
     # this method is a helper used by call statements and call expressions
     # (call object_ref/me methodname p1 p2 p3)
-    def __execute_call_aux(self, env, code, line_num_of_statement):
+    def __execute_call_aux(
+        self, env, code, line_num_of_statement, first_obj=None
+    ):
         # determine which object we want to call the method on
         obj_name = code[1]
         # print(obj_name)
         if obj_name == InterpreterBase.ME_DEF:
-            obj = self
+            # print(first_obj.class_def.name)
+            if first_obj:
+                obj = first_obj
+            else:
+                obj = self
         elif obj_name == InterpreterBase.SUPER_DEF:
             obj = self.super_obj
         else:
@@ -811,7 +844,9 @@ class ObjectDef:
             actual_args.append(
                 self.__evaluate_expression(env, expr, line_num_of_statement)
             )
-        return obj.call_method(code[2], actual_args, line_num_of_statement)
+        return obj.call_method(
+            code[2], actual_args, line_num_of_statement, first_obj
+        )
 
     def __map_method_names_to_method_definitions(self):
         self.methods = {}
