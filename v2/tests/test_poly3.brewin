@@ -1,0 +1,22 @@
+(class b
+  (method void main () (return))
+)
+(class d inherits b
+  (method void main () (return))
+)
+(class dd inherits d
+  (method void main () (return))
+)
+(class ddd inherits dd
+  (method void main () (return))
+)
+
+(class main
+  (method void main ()
+    (let ((b b null) (d d null))
+      (set b (new ddd))
+      (set d (new dd))
+      (print "yeah")
+    )
+  )
+)

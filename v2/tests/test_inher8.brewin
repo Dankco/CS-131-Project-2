@@ -1,0 +1,42 @@
+(class a
+    (field int x 5)
+    (method int m1 ()
+        (return x)
+    )
+)
+
+(class b inherits a
+    (field string y "string")
+    (method string m1 ()
+        (return y)
+    )
+)
+
+(class main
+    (field a a_ null)
+    (field b b_ null)
+    (method int returns_int () (return 5))
+    (method void foo ((int i))
+        (begin
+            (print i) 
+            (set i (call me returns_int))
+            (print i)
+        )
+    )
+
+    (method void main ()
+        (begin
+            (if (== a_ null)   
+                (print "invalid")
+            )
+            (set a_ (new b))
+            (set b_ a_)
+            (if (== a_ null)   
+                (print "invalid object")
+            )
+            (call me foo 3)
+
+            (print (call b_ m1))
+        )
+    )
+)

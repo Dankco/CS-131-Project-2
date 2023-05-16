@@ -1,16 +1,21 @@
+(class person
+(field int x 0)
+(method void say_something ()
+    (print "Can I have a project extension?" x)
+  )
+)
 (class main
-    (method int value_or_zero ((int q))
-      (begin
-        (if (< q 0)
-          (print "q is less than zero")
-          (return q) # else case
-        )
-       )
-    )
-    (method void main ()
-      (begin
-        (print (call me value_or_zero 10))  # prints 10
-        (print (call me value_or_zero -10)) # prints 0
+  (field person p1 null)
+  (field person p2 null)
+  (method person foo () (return (new person)))
+  (method void main () 
+    (begin
+      (print (call (call me foo) say_something))
+      (set p1 (new person))
+      (set p1 p2)
+      (if (== p1 p2)
+        (print "bad")
       )
     )
-  )
+)
+)

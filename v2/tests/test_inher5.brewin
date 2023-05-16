@@ -1,0 +1,28 @@
+(class lost
+  (field string a "dsfsd")
+ (method void f ((int x) (int y) (int z)) (print (+ (+ x y) z) " " a))
+)
+(class foo inherits lost
+ (method void f ((int x)) (print x))
+)
+(class bar inherits foo
+  (method void f ((int x) (int y)) (print x " " y))
+  (method void food ((lost p1) (foo p2)) 
+    (if (== p1 p2)   
+      (print "same object")
+    )
+  )
+)
+
+
+(class main
+ (field bar b null)
+ (method void main ()
+   (begin
+     (set b (new bar))
+     (call b f 10)
+     (call b f 10 20 30)   # calls version of f defined in bar
+     (call b food (new lost) (new foo))
+   )
+ )
+)

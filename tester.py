@@ -194,7 +194,16 @@ def generate_test_suite_v2():
             "test_let2",
             "test_inher4",
             "test_objref_comp",
-            "test_let_shadow"
+            "test_let_shadow",
+            "test_inher8",
+            "test_inher5",
+            "test_ll",
+            "test_poly2",
+            "test_poly3",
+            "test_poly4",
+            "test_inher6",
+            "test_set6",
+            "test_set5",
         ],
         [
             "test_incompat_return1",
@@ -205,7 +214,9 @@ def generate_test_suite_v2():
             "test_let_oos",
             "test_inher2",
             "test_incompat_return2",
-            "test_let_dupe"
+            "test_let_dupe",
+            "test_call_badargs",
+            "test_return_assign",
         ],
     )
 

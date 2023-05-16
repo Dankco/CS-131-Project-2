@@ -1,0 +1,14 @@
+(class main
+  (method void main ()
+    (call me foo (new dog))
+  )
+  (method void foo ((dog d))
+    (begin
+      (set d null)
+      (print "success")
+    )
+  )
+)
+(class dog
+  (method void main () (return null))
+)

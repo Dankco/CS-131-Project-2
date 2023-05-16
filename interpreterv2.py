@@ -182,7 +182,7 @@ class ClassDef:
             )
 
     def check_type_and_value(self, type, val, is_param=False):
-        # print(val.type(), type, val.value())
+        print(type, val.type(), val.value())
         # change null to have class type
         if (
             not isinstance(type, Type)
@@ -201,6 +201,8 @@ class ClassDef:
                     break
                 class_to_search = classes[class_to_use]
             if class_to_use == type:
+                if is_param:
+                    val.set(Value(class_to_use, val.value()))
                 return val
             else:
                 self.interpreter.error(
@@ -388,7 +390,7 @@ class ObjectDef:
                     method_name, actual_params, line_num_of_caller
                 )
             self.interpreter.error(
-                ErrorType.TYPE_ERROR,
+                ErrorType.NAME_ERROR,
                 "invalid number of parameters in call to " + method_name,
                 line_num_of_caller,
             )
@@ -568,6 +570,9 @@ class ObjectDef:
             )
         param_val = env.get(var_name)
         if param_val is not None:
+            value = self.class_def.check_type_and_value(
+                param_val.type(), value
+            )
             env.set(var_name, value)
             return
 
@@ -661,6 +666,31 @@ class ObjectDef:
             operand2 = self.__evaluate_expression(
                 env, expr[2], line_num_of_statement
             )
+            print(operand1.type(), operand2.type())
+            if not isinstance(operand1.type(), Type) and not isinstance(
+                operand2.type(), Type
+            ):
+                classes = self.interpreter.get_classes()
+                class_to_search = classes[operand1.type()]
+                class_to_use = class_to_search.name
+                while class_to_use != operand2.type():
+                    class_to_use = class_to_search.superclass
+                    if class_to_use is None:
+                        break
+                    class_to_search = classes[class_to_use]
+                if class_to_use == operand2.type():
+                    operand1 = Value(class_to_use, operand1.value())
+                else:
+                    class_to_search = classes[operand2.type()]
+                    class_to_use = class_to_search.name
+                    while class_to_use != operand1.type():
+                        print(class_to_use)
+                        class_to_use = class_to_search.superclass
+                        if class_to_use is None:
+                            break
+                        class_to_search = classes[class_to_use]
+                    if class_to_use == operand1.type():
+                        operand2 = Value(class_to_use, operand2.value())
             """ print(
                 operand1.type(),
                 isinstance(operand1.type(), Type),
